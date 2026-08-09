@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: blogs-prod
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - name: marketing-digest-blogs-prod
+  template:
+    metadata:
+      name: '{{name}}'
+    spec:
+      project: default
+      sources:
+        - repoURL: https://github.com/Yuvraj02/md-charts.git
+          targetRevision: main
+          path: blogs
+          helm:
+            valueFiles:
+              - $values/blogs/prod/values.yaml
+        - repoURL: https://github.com/Yuvraj02/md-helm-values.git
+          targetRevision: main
+          ref: values
+      # PLACEHOLDER: register an Argo CD cluster named "production" (EKS) before enabling.
+      # Do not point prod apps at the local Kind API server.
+      destination:
+        name: production
+        namespace: marketing-digest
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

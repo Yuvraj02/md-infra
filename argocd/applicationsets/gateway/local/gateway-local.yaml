@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: gateway-local
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - name: marketing-digest-gateway-local
+  template:
+    metadata:
+      name: '{{name}}'
+    spec:
+      project: default
+      sources:
+        - repoURL: https://github.com/Yuvraj02/md-charts.git
+          targetRevision: main
+          path: gateway
+          helm:
+            valueFiles:
+              - $values/gateway/local/values.yaml
+        - repoURL: https://github.com/Yuvraj02/md-helm-values.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: marketing-digest
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
