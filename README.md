@@ -18,6 +18,7 @@ argocd/
     blogs/{local,prod}/   # blogs ApplicationSets
     auth/{local,prod}/    # auth ApplicationSets
   addons/                 # Future cluster addons
+lcr/                      # Local Container Registry helpers (NOT Argo CD)
 terraform/                # Future AWS / platform infrastructure (placeholder)
 ```
 
