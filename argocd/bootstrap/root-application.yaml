@@ -12,6 +12,11 @@ spec:
     repoURL: https://github.com/Yuvraj02/md-infra.git
     targetRevision: main
     path: argocd
+    # ApplicationSets live under argocd/applicationsets/<service>/<env>/ —
+    # without recurse, Argo CD only looks at files directly under argocd/ and
+    # finds nothing to sync.
+    directory:
+      recurse: true
 
   destination:
     server: https://kubernetes.default.svc

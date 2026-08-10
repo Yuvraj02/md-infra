@@ -24,9 +24,18 @@ terraform/                # Future AWS / platform infrastructure (placeholder)
 
 ### `argocd/bootstrap`
 
-Root Argo CD `Application` watches this repository (`path: argocd`) so
-ApplicationSets under `applicationsets/` are synced into the `argocd`
-namespace.
+Root Argo CD `Application` watches this repository (`path: argocd`, with
+`directory.recurse: true`) so nested ApplicationSets under
+`applicationsets/` are synced into the `argocd` namespace.
+
+Apply once (bootstrap chicken-and-egg):
+
+```bash
+kubectl apply -f argocd/bootstrap/root-application.yaml
+```
+
+After that, Git is the source of truth — including updates to this root
+Application itself.
 
 ### `argocd/applicationsets`
 
