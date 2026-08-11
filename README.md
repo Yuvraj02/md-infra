@@ -37,6 +37,12 @@ kubectl apply -f argocd/bootstrap/root-application.yaml
 After that, Git is the source of truth — including updates to this root
 Application itself.
 
+### `terraform/`
+
+AWS free-tier production bootstrap (VPC, single `t2.micro`, EIP, RDS,
+ECR). See [terraform/README.md](terraform/README.md) for IAM/CLI
+checklist and apply steps. Do not store credentials or `backend.hcl` in Git.
+
 ### `argocd/applicationsets`
 
 One ApplicationSet per service/environment. Each generates exactly one
