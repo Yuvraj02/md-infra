@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Jenkins CI only (t3.micro) — nginx reverse-proxies :80 -> Jenkins on loopback :8080.
+# Jenkins container gets docker.sock + docker CLI so pipelines can build/push images.
 
 exec > >(tee /var/log/md-bootstrap.log | logger -t md-bootstrap -s 2>/dev/console) 2>&1
 
@@ -21,8 +22,11 @@ dnf install -y docker git jq nginx
 systemctl enable --now docker
 usermod -aG docker ec2-user || true
 
-echo "==> Jenkins LTS (Docker, bound to loopback; nginx fronts :80)"
+echo "==> Jenkins LTS (Docker-in-Docker via host socket + CLI)"
 docker volume create jenkins_home >/dev/null
+
+DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
+DOCKER_BIN="$(command -v docker)"
 
 if docker ps -a --format '{{.Names}}' | grep -qx jenkins; then
   docker rm -f jenkins || true
@@ -35,6 +39,8 @@ docker run -d \
   -p 127.0.0.1:50000:50000 \
   -v jenkins_home:/var/jenkins_home \
   -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "${DOCKER_BIN}:/usr/bin/docker:ro" \
+  --group-add "${DOCKER_GID}" \
   -e AWS_DEFAULT_REGION=${aws_region} \
   -e AWS_REGION=${aws_region} \
   -e MD_PROJECT=${project} \
