@@ -1,15 +1,21 @@
-output "elastic_ip" {
-  description = "Public Elastic IP for Jenkins and gateway"
-  value       = module.compute.elastic_ip
+output "jenkins_elastic_ip" {
+  description = "Public Elastic IP for Jenkins UI"
+  value       = module.compute.jenkins_elastic_ip
 }
 
-output "instance_id" {
-  description = "EC2 instance id (SSM / console)"
-  value       = module.compute.instance_id
+output "jenkins_instance_id" {
+  description = "Jenkins EC2 instance id"
+  value       = module.compute.jenkins_instance_id
 }
 
-output "instance_private_ip" {
-  value = module.compute.private_ip
+output "cluster_elastic_ip" {
+  description = "Public Elastic IP for gateway / cluster"
+  value       = module.compute.cluster_elastic_ip
+}
+
+output "cluster_instance_id" {
+  description = "k3s + Argo CD EC2 instance id"
+  value       = module.compute.cluster_instance_id
 }
 
 output "vpc_id" {
@@ -35,16 +41,21 @@ output "rds_secret_arn" {
 }
 
 output "ecr_repository_urls" {
-  description = "Map of short name → ECR repository URL"
+  description = "Map of short name to ECR repository URL"
   value       = module.ecr.repository_urls
 }
 
-output "ssm_start_session_command" {
-  description = "Copy-paste SSM session command"
-  value       = "aws ssm start-session --target ${module.compute.instance_id} --region ${var.aws_region} --profile ${var.aws_profile}"
+output "ssm_jenkins_command" {
+  description = "SSM session to Jenkins host"
+  value       = "aws ssm start-session --target ${module.compute.jenkins_instance_id} --region ${var.aws_region} --profile ${var.aws_profile}"
+}
+
+output "ssm_cluster_command" {
+  description = "SSM session to k3s / Argo CD host"
+  value       = "aws ssm start-session --target ${module.compute.cluster_instance_id} --region ${var.aws_region} --profile ${var.aws_profile}"
 }
 
 output "jenkins_url" {
-  description = "Jenkins UI (allowlisted to allowed_cidr)"
-  value       = "http://${module.compute.elastic_ip}:${var.jenkins_http_port}"
+  description = "Jenkins UI via nginx on :80 (allowlisted to allowed_cidr)"
+  value       = "http://${module.compute.jenkins_elastic_ip}"
 }

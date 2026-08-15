@@ -15,14 +15,16 @@ module "network" {
 module "compute" {
   source = "./modules/compute"
 
-  name_prefix       = local.name_prefix
-  subnet_id         = module.network.public_subnet_id
-  security_group_id = module.network.ec2_security_group_id
-  instance_type     = var.instance_type
-  jenkins_http_port = var.jenkins_http_port
-  project           = var.project
-  environment       = var.environment
-  tags              = local.common_tags
+  name_prefix               = local.name_prefix
+  subnet_id                 = module.network.public_subnet_id
+  jenkins_security_group_id = module.network.jenkins_security_group_id
+  cluster_security_group_id = module.network.cluster_security_group_id
+  ci_instance_type          = var.ci_instance_type
+  cluster_instance_type     = var.cluster_instance_type
+  jenkins_http_port         = var.jenkins_http_port
+  project                   = var.project
+  environment               = var.environment
+  tags                      = local.common_tags
 }
 
 module "database" {

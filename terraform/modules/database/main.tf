@@ -54,6 +54,10 @@ resource "aws_db_instance" "this" {
   })
 }
 
+# After RDS is up, ensure app databases exist from a VPC host (Jenkins/cluster):
+#   modules/database/scripts/create_database.sh
+# RDS also creates var.db_name on first boot; the script adds auth/blog DBs idempotently.
+
 resource "aws_secretsmanager_secret_version" "db" {
   secret_id = aws_secretsmanager_secret.db.id
   secret_string = jsonencode({

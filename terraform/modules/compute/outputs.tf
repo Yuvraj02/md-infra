@@ -1,17 +1,25 @@
-output "instance_id" {
-  value = aws_instance.this.id
+output "jenkins_instance_id" {
+  value = aws_instance.jenkins.id
 }
 
-output "private_ip" {
-  value = aws_instance.this.private_ip
+output "jenkins_private_ip" {
+  value = aws_instance.jenkins.private_ip
 }
 
-output "elastic_ip" {
-  value = aws_eip.this.public_ip
+output "jenkins_elastic_ip" {
+  value = aws_eip.jenkins.public_ip
 }
 
-output "elastic_ip_allocation_id" {
-  value = aws_eip.this.id
+output "cluster_instance_id" {
+  value = aws_instance.cluster.id
+}
+
+output "cluster_private_ip" {
+  value = aws_instance.cluster.private_ip
+}
+
+output "cluster_elastic_ip" {
+  value = aws_eip.cluster.public_ip
 }
 
 output "instance_role_arn" {

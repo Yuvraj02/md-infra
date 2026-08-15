@@ -1,13 +1,16 @@
 # Terraform — Marketing Digest AWS platform
 
-Infrastructure as code for the **production** AWS free-tier bootstrap:
+Infrastructure as code for the **production** AWS bootstrap:
 
-- 1× `t2.micro` EC2 (Jenkins + k3s + app workloads)
-- Elastic IP (public entry; no ALB)
+- 1× `t3.micro` EC2 — **Jenkins only** (CI)
+- 1× `t3.medium` EC2 — **k3s + Argo CD + apps**
+- Elastic IPs on both hosts (no ALB)
 - RDS Postgres (`db.t3.micro`, private)
 - ECR repos for `gateway`, `auth`, `blog`
 
 All resources are tagged with `Project`, `Environment`, and `ManagedBy`.
+
+**Region: `ap-south-1` (Mumbai).** Moving from another region is a **new stack** (new state bucket + recreate resources), not an in-place move.
 
 **This directory does not run `terraform apply` for you.** Complete Phase 0–2 below, then apply from your laptop.
 
@@ -15,9 +18,9 @@ All resources are tagged with `Project`, `Environment`, and `ManagedBy`.
 
 ## Phase 0 — AWS account hygiene (Console)
 
-Do this once as **root**, then stop using root day-to-day. Region: **`us-east-1`**.
+Do this once as **root**, then stop using root day-to-day. Region: **`ap-south-1`**.
 
-1. Confirm region **N. Virginia (`us-east-1`)** in the console header.
+1. Confirm region **Mumbai (`ap-south-1`)** in the console header.
 2. **Root security**
    - Enable MFA on the root user
    - Strong root password
@@ -65,7 +68,7 @@ Then re-run `terraform apply`.
 # AWS CLI v2 + Terraform >= 1.5
 aws configure --profile marketing-digest
 # Access key / secret from terraform-marketing-digest
-# Default region: us-east-1
+# Default region: ap-south-1
 # Default output: json
 
 export AWS_PROFILE=marketing-digest
@@ -75,7 +78,7 @@ aws sts get-caller-identity
 Optional: install the Session Manager plugin so you can reach the instance without opening SSH:
 
 ```bash
-aws ssm start-session --target <instance-id> --region us-east-1
+aws ssm start-session --target <instance-id> --region ap-south-1
 ```
 
 ---
@@ -87,10 +90,12 @@ Terraform state must not live in git. Create these **once** with the CLI (or con
 ```bash
 export AWS_PROFILE=marketing-digest
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-BUCKET="marketing-digest-tfstate-${ACCOUNT_ID}"
-REGION=us-east-1
+BUCKET="marketing-digest-tfstate-${ACCOUNT_ID}-ap-south-1"
+REGION=ap-south-1
 
-aws s3api create-bucket --bucket "$BUCKET" --region "$REGION"
+# ap-south-1 requires LocationConstraint (use scripts/bootstrap-state.sh)
+aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" \
+  --create-bucket-configuration LocationConstraint="$REGION"
 aws s3api put-bucket-versioning --bucket "$BUCKET" \
   --versioning-configuration Status=Enabled
 aws s3api put-public-access-block --bucket "$BUCKET" \
@@ -136,21 +141,24 @@ terraform apply -var-file=envs/production/terraform.tfvars
 
 ### Outputs to save
 
-- `elastic_ip` — public address for gateway / Jenkins
-- `instance_id` — SSM / EC2 id
+- `jenkins_elastic_ip` / `jenkins_url` — Jenkins UI
+- `cluster_elastic_ip` — gateway / public app entry
+- `jenkins_instance_id` / `cluster_instance_id` — SSM targets
 - `rds_endpoint` — Postgres host
 - `ecr_repository_urls` — image push targets
-- `ssm_start_session_command` — copy-paste SSM connect
+- `ssm_jenkins_command` / `ssm_cluster_command`
 
 ### Smoke checks after apply
 
-1. `aws ssm start-session --target $(terraform output -raw instance_id)`
-2. On the instance: `kubectl get nodes` (k3s), `docker ps` (Jenkins)
-3. From your laptop (IP allowlisted): `http://<elastic_ip>:8080` (Jenkins)
-4. From the instance: `psql` / connectivity to RDS endpoint on 5432
-5. `aws ecr describe-repositories --region us-east-1`
+1. `terraform output ssm_jenkins_command` then open a session; `docker ps` should show Jenkins
+2. `terraform output ssm_cluster_command`; `kubectl get nodes` and `kubectl -n argocd get pods`
+3. From your laptop (IP allowlisted): Jenkins URL from `terraform output jenkins_url`
+4. From the cluster host: connectivity to RDS on 5432
+5. `aws ecr describe-repositories --region ap-south-1`
 
-User-data installs **swap**, **Docker**, **k3s**, and **Jenkins** (memory-capped). First boot can take several minutes on `t2.micro`.
+User-data: Jenkins host installs Docker + Jenkins + nginx (HTTP :80 reverse proxy to loopback :8080); cluster host installs k3s + Argo CD. First boot on the cluster can take several minutes while images pull.
+
+Applying this stack **destroys the old all-in-one `t2.micro`** and replaces it with the two new instances.
 
 ---
 
@@ -168,7 +176,7 @@ Use `Environment=uat` later for a second stack; do not overload this production 
 
 ## Explicit non-goals (this stack)
 
-EKS, ALB/NLB, NAT Gateway, Multi-AZ RDS, second EC2, Argo CD on the micro instance.
+EKS, ALB/NLB, NAT Gateway, Multi-AZ RDS, Argo CD on the Jenkins host.
 
 ---
 

@@ -82,35 +82,17 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-resource "aws_security_group" "ec2" {
-  name        = "${var.name_prefix}-ec2"
-  description = "EC2 host (Jenkins + k3s + gateway)"
+resource "aws_security_group" "jenkins" {
+  name        = "${var.name_prefix}-jenkins"
+  description = "Jenkins CI host"
   vpc_id      = aws_vpc.this.id
 
-  # Jenkins UI — locked to operator CIDR
   ingress {
-    description = "Jenkins HTTP"
-    from_port   = var.jenkins_http_port
-    to_port     = var.jenkins_http_port
+    description = "Jenkins HTTP via nginx"
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = [var.allowed_cidr]
-  }
-
-  # Gateway / HTTP
-  ingress {
-    description = "Gateway HTTP"
-    from_port   = var.gateway_http_port
-    to_port     = var.gateway_http_port
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "HTTPS"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
   }
 
   dynamic "ingress" {
@@ -133,7 +115,63 @@ resource "aws_security_group" "ec2" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.name_prefix}-ec2-sg"
+    Name = "${var.name_prefix}-jenkins-sg"
+    Role = "ci"
+  })
+}
+
+resource "aws_security_group" "cluster" {
+  name        = "${var.name_prefix}-cluster"
+  description = "k3s cluster host (Argo CD + apps)"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description = "Gateway HTTP"
+    from_port   = var.gateway_http_port
+    to_port     = var.gateway_http_port
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Optional: Argo CD UI via NodePort later; kubectl API for admin IP
+  ingress {
+    description = "k3s API"
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = [var.allowed_cidr]
+  }
+
+  dynamic "ingress" {
+    for_each = var.enable_ssh ? [1] : []
+    content {
+      description = "SSH"
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = [var.allowed_cidr]
+    }
+  }
+
+  egress {
+    description = "All egress"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-cluster-sg"
+    Role = "k3s"
   })
 }
 
@@ -143,11 +181,19 @@ resource "aws_security_group" "rds" {
   vpc_id      = aws_vpc.this.id
 
   ingress {
-    description     = "Postgres from EC2"
+    description     = "Postgres from Jenkins"
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.ec2.id]
+    security_groups = [aws_security_group.jenkins.id]
+  }
+
+  ingress {
+    description     = "Postgres from cluster"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.cluster.id]
   }
 
   egress {

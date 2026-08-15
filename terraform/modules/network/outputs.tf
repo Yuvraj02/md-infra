@@ -10,8 +10,12 @@ output "private_subnet_ids" {
   value = aws_subnet.private[*].id
 }
 
-output "ec2_security_group_id" {
-  value = aws_security_group.ec2.id
+output "jenkins_security_group_id" {
+  value = aws_security_group.jenkins.id
+}
+
+output "cluster_security_group_id" {
+  value = aws_security_group.cluster.id
 }
 
 output "rds_security_group_id" {

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # One-time remote state bootstrap for Marketing Digest Terraform.
-# Usage: AWS_PROFILE=marketing-digest ./scripts/bootstrap-state.sh
+# Usage: AWS_PROFILE=marketing-digest AWS_REGION=ap-south-1 ./scripts/bootstrap-state.sh
 set -euo pipefail
 
-REGION="${AWS_REGION:-us-east-1}"
+REGION="${AWS_REGION:-ap-south-1}"
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-BUCKET="marketing-digest-tfstate-${ACCOUNT_ID}"
+BUCKET="marketing-digest-tfstate-${ACCOUNT_ID}-${REGION}"
 TABLE="marketing-digest-tf-locks"
 
 echo "Account: ${ACCOUNT_ID}"
@@ -16,7 +16,14 @@ echo "Region:  ${REGION}"
 if aws s3api head-bucket --bucket "${BUCKET}" 2>/dev/null; then
   echo "S3 bucket already exists"
 else
-  aws s3api create-bucket --bucket "${BUCKET}" --region "${REGION}"
+  if [[ "${REGION}" == "us-east-1" ]]; then
+    aws s3api create-bucket --bucket "${BUCKET}" --region "${REGION}"
+  else
+    aws s3api create-bucket \
+      --bucket "${BUCKET}" \
+      --region "${REGION}" \
+      --create-bucket-configuration "LocationConstraint=${REGION}"
+  fi
 fi
 
 aws s3api put-bucket-versioning --bucket "${BUCKET}" \
@@ -50,4 +57,4 @@ dynamodb_table = "${TABLE}"
 encrypt        = true
 EOF
 
-echo "Wrote backend.hcl — run: terraform init -backend-config=backend.hcl"
+echo "Wrote backend.hcl — run: terraform init -reconfigure -backend-config=backend.hcl"

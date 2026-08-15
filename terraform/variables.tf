@@ -1,7 +1,7 @@
 variable "aws_region" {
   type        = string
   description = "AWS region for all resources"
-  default     = "us-east-1"
+  default     = "ap-south-1"
 }
 
 variable "aws_profile" {
@@ -51,15 +51,21 @@ variable "enable_ssh" {
   default     = false
 }
 
-variable "instance_type" {
+variable "ci_instance_type" {
   type        = string
-  description = "EC2 instance type (free tier: t2.micro)"
-  default     = "t2.micro"
+  description = "Jenkins CI instance type"
+  default     = "t3.micro"
+}
+
+variable "cluster_instance_type" {
+  type        = string
+  description = "k3s + Argo CD instance type"
+  default     = "t3.medium"
 }
 
 variable "jenkins_http_port" {
   type        = number
-  description = "Host port published for Jenkins UI"
+  description = "Loopback port Jenkins listens on (nginx proxies public :80 here)"
   default     = 8080
 }
 

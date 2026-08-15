@@ -22,8 +22,12 @@ variable "enable_ssh" {
   type = bool
 }
 
+# Kept for module API compatibility; Jenkins UI is exposed on :80 via nginx.
+# The container still listens on this port on loopback only.
 variable "jenkins_http_port" {
-  type = number
+  type        = number
+  description = "Legacy Jenkins container port (not opened on the SG; nginx uses :80)"
+  default     = 8080
 }
 
 variable "gateway_http_port" {

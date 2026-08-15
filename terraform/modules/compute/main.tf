@@ -71,27 +71,33 @@ resource "aws_iam_instance_profile" "ec2" {
 }
 
 locals {
-  user_data = templatefile("${path.module}/user_data.sh.tpl", {
+  jenkins_user_data = templatefile("${path.module}/user_data_jenkins.sh.tpl", {
     jenkins_http_port = var.jenkins_http_port
     project           = var.project
     environment       = var.environment
     aws_region        = data.aws_region.current.name
     aws_account_id    = data.aws_caller_identity.current.account_id
   })
+
+  cluster_user_data = templatefile("${path.module}/user_data_cluster.sh.tpl", {
+    project        = var.project
+    environment    = var.environment
+    aws_region     = data.aws_region.current.name
+    aws_account_id = data.aws_caller_identity.current.account_id
+  })
 }
 
-resource "aws_instance" "this" {
+resource "aws_instance" "jenkins" {
   ami                    = data.aws_ami.al2023.id
-  instance_type          = var.instance_type
+  instance_type          = var.ci_instance_type
   subnet_id              = var.subnet_id
-  vpc_security_group_ids = [var.security_group_id]
+  vpc_security_group_ids = [var.jenkins_security_group_id]
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
 
-  user_data                   = local.user_data
+  user_data                   = local.jenkins_user_data
   user_data_replace_on_change = true
 
   root_block_device {
-    # AL2023 AMI snapshot is currently >= 30 GiB; cannot shrink below snapshot size.
     volume_size = 30
     volume_type = "gp3"
     encrypted   = true
@@ -104,20 +110,63 @@ resource "aws_instance" "this" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.name_prefix}-compute"
-    Role = "jenkins-k3s"
+    Name = "${var.name_prefix}-jenkins"
+    Role = "ci"
   })
 }
 
-resource "aws_eip" "this" {
+resource "aws_instance" "cluster" {
+  ami                    = data.aws_ami.al2023.id
+  instance_type          = var.cluster_instance_type
+  subnet_id              = var.subnet_id
+  vpc_security_group_ids = [var.cluster_security_group_id]
+  iam_instance_profile   = aws_iam_instance_profile.ec2.name
+
+  user_data                   = local.cluster_user_data
+  user_data_replace_on_change = true
+
+  root_block_device {
+    volume_size = 40
+    volume_type = "gp3"
+    encrypted   = true
+  }
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-k3s"
+    Role = "k3s"
+  })
+}
+
+resource "aws_eip" "jenkins" {
   domain = "vpc"
 
   tags = merge(var.tags, {
-    Name = "${var.name_prefix}-eip"
+    Name = "${var.name_prefix}-jenkins-eip"
+    Role = "ci"
   })
 }
 
-resource "aws_eip_association" "this" {
-  instance_id   = aws_instance.this.id
-  allocation_id = aws_eip.this.id
+resource "aws_eip_association" "jenkins" {
+  instance_id   = aws_instance.jenkins.id
+  allocation_id = aws_eip.jenkins.id
+}
+
+resource "aws_eip" "cluster" {
+  domain = "vpc"
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-cluster-eip"
+    Role = "k3s"
+  })
+}
+
+resource "aws_eip_association" "cluster" {
+  instance_id   = aws_instance.cluster.id
+  allocation_id = aws_eip.cluster.id
 }

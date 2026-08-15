@@ -1,5 +1,5 @@
-bucket         = "marketing-digest-tfstate-REPLACE_WITH_ACCOUNT_ID"
+bucket         = "marketing-digest-tfstate-REPLACE_WITH_ACCOUNT_ID-ap-south-1"
 key            = "production/terraform.tfstate"
-region         = "us-east-1"
+region         = "ap-south-1"
 dynamodb_table = "marketing-digest-tf-locks"
 encrypt        = true

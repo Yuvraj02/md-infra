@@ -6,11 +6,19 @@ variable "subnet_id" {
   type = string
 }
 
-variable "security_group_id" {
+variable "jenkins_security_group_id" {
   type = string
 }
 
-variable "instance_type" {
+variable "cluster_security_group_id" {
+  type = string
+}
+
+variable "ci_instance_type" {
+  type = string
+}
+
+variable "cluster_instance_type" {
   type = string
 }
 
